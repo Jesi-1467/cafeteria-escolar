@@ -81,143 +81,132 @@ function MenuCliente() {
         );
     };
 
-    const pagar = async () => {
+   const pagar = async () => {
 
-        try {
+    const total = carrito.reduce(
+        (suma, producto) => suma + parseFloat(producto.precio || 0),
+        0
+    );
 
-            const usuario = JSON.parse(
-                localStorage.getItem("usuario")
-            );
+    try {
 
-            if (!usuario) {
+        const usuario = JSON.parse(
+            localStorage.getItem("usuario")
+        );
 
-                alert("Debe iniciar sesión");
+        if (!usuario) {
+            alert("Debe iniciar sesión");
+            return;
+        }
+
+        const fechaActual = new Date()
+            .toLocaleString("sv-SE")
+            .replace(" ", "T");
+
+        const pedidoResponse = await API.post(
+            "pedidos/",
+            {
+                id_usuario: usuario.id_usuario,
+                fecha: fechaActual,
+                total: total,
+                estado: "Pagado",
+                observaciones: "Pedido realizado desde la web"
+            }
+        );
+
+        const idPedido = pedidoResponse.data.id_pedido;
+
+        const productosAgrupados = {};
+
+        carrito.forEach((producto) => {
+
+            if (!productosAgrupados[producto.id_producto]) {
+
+                productosAgrupados[producto.id_producto] = {
+                    ...producto,
+                    cantidad: 1
+                };
+
+            } else {
+
+                productosAgrupados[producto.id_producto].cantidad++;
+
+            }
+
+        });
+
+        for (const id in productosAgrupados) {
+
+            const producto = productosAgrupados[id];
+
+            if (producto.cantidad > producto.stock) {
+
+                alert(`No hay suficiente stock de ${producto.nombre}`);
                 return;
 
             }
 
-            const fechaActual = new Date()
-                .toLocaleString("sv-SE")
-                .replace(" ", "T");
+        }
 
-            const pedidoResponse = await API.post(
-                "pedidos/",
+        for (const id in productosAgrupados) {
+
+            const producto = productosAgrupados[id];
+
+            await API.post(
+                "detallepedidos/",
                 {
-                    id_usuario: usuario.id_usuario,
-                    fecha: fechaActual,
-                    total: total,
-                    estado: "Pagado",
-                    observaciones: "Pedido realizado desde la web"
+                    id_pedido: idPedido,
+                    id_producto: producto.id_producto,
+                    cantidad: producto.cantidad,
+                    precio_unitario: producto.precio,
+                    subtotal:
+                        producto.cantidad *
+                        Number(producto.precio)
                 }
             );
 
-            const idPedido =
-                pedidoResponse.data.id_pedido;
+            const productoActualizado = {
+                ...producto,
+                stock: producto.stock - producto.cantidad
+            };
 
-            const productosAgrupados = {};
+            await API.put(
+                `productos/${producto.id_producto}/`,
+                productoActualizado
+            );
 
-            carrito.forEach((producto) => {
+        }
 
-                if (!productosAgrupados[producto.id_producto]) {
+        alert("Compra realizada correctamente");
 
-                    productosAgrupados[
-                        producto.id_producto
-                    ] = {
-                        ...producto,
-                        cantidad: 1
-                    };
+        setCarrito([]);
 
-                } else {
+        localStorage.removeItem("carrito");
 
-                    productosAgrupados[
-                        producto.id_producto
-                    ].cantidad++;
+        cargarProductos();
 
-                }
+    } catch (error) {
 
-            });
+        console.error(error);
 
-            for (const id in productosAgrupados) {
+        if (error.response) {
 
-                const producto =
-                    productosAgrupados[id];
-
-                if (
-                    producto.cantidad >
-                    producto.stock
-                ) {
-
-                    alert(
-                        `No hay suficiente stock de ${producto.nombre}`
-                    );
-
-                    return;
-
-                }
-
-            }
-
-            for (const id in productosAgrupados) {
-
-                const producto =
-                    productosAgrupados[id];
-
-                await API.post(
-                    "detallepedidos/",
-                    {
-                        id_pedido: idPedido,
-                        id_producto:
-                            producto.id_producto,
-                        cantidad:
-                            producto.cantidad,
-                        precio_unitario:
-                            producto.precio,
-                        subtotal:
-                            producto.cantidad *
-                            Number(producto.precio)
-                    }
-                );
-
-                const productoActualizado = {
-                    ...producto,
-                    stock:
-                        producto.stock -
-                        producto.cantidad
-                };
-
-                await API.put(
-                    `productos/${producto.id_producto}/`,
-                    productoActualizado
-                );
-
-            }
+            console.log("Status:", error.response.status);
+            console.log("Respuesta:", error.response.data);
 
             alert(
-                "Compra realizada correctamente"
+                JSON.stringify(error.response.data, null, 2)
             );
 
-            setCarrito([]);
+        } else {
 
-            localStorage.removeItem("carrito");
+            alert("Error de conexión con el servidor");
 
-            cargarProductos();
+        }
 
-        catch (error) {
-
-                console.error(error);
-
-                     if (error.response) {
-                 console.log("Status:", error.response.status);
-                console.log("Respuesta:", error.response.data);
-
-        alert(
-            JSON.stringify(error.response.data, null, 2)
-        );
-    } else {
-        alert("Error de conexión con el servidor");
     }
 
-}
+};
 
     };
 
