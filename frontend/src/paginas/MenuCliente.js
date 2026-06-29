@@ -28,31 +28,46 @@ function MenuCliente() {
 
     const agregarAlCarrito = (producto) => {
 
-        const cantidad = carrito.filter(
+        const cantidadEnCarrito = carrito.filter(
             item => item.id_producto === producto.id_producto
         ).length;
 
-        if (cantidad >= producto.stock) {
-            alert("Sin stock disponible");
+        if (cantidadEnCarrito >= producto.stock) {
+            alert(`Ya no hay más existencias de "${producto.nombre}"`);
             return;
         }
 
-        const nuevo = [...carrito, producto];
+        const nuevoCarrito = [...carrito, producto];
 
-        setCarrito(nuevo);
-        localStorage.setItem("carrito", JSON.stringify(nuevo));
+        setCarrito(nuevoCarrito);
+
+        localStorage.setItem("carrito", JSON.stringify(nuevoCarrito));
+
+        const restantes = producto.stock - (cantidadEnCarrito + 1);
+
+        if (restantes === 0) {
+            alert(`Se agotó el producto "${producto.nombre}"`);
+        } else {
+            alert(
+                `El producto "${producto.nombre}" se agregó al carrito. Restan ${restantes} unidades`
+            );
+        }
     };
 
     const eliminarProducto = (index) => {
-        const nuevo = carrito.filter((_, i) => i !== index);
-        setCarrito(nuevo);
-        localStorage.setItem("carrito", JSON.stringify(nuevo));
+
+        const nuevoCarrito = carrito.filter((_, i) => i !== index);
+
+        setCarrito(nuevoCarrito);
+
+        localStorage.setItem("carrito", JSON.stringify(nuevoCarrito));
     };
 
     const pagar = async () => {
 
         const total = carrito.reduce(
-            (suma, p) => suma + parseFloat(p.precio || 0),
+            (suma, producto) =>
+                suma + parseFloat(producto.precio || 0),
             0
         );
 
@@ -65,43 +80,63 @@ function MenuCliente() {
                 return;
             }
 
-            const fecha = new Date().toISOString().slice(0, 19);
+            const fechaActual = new Date()
+                .toISOString()
+                .slice(0, 19);
 
-            const pedido = await API.post("pedidos/", {
+            const pedidoResponse = await API.post("pedidos/", {
                 id_usuario: usuario.id_usuario,
-                fecha,
-                total,
+                fecha: fechaActual,
+                total: total,
                 estado: "Pagado",
-                observaciones: "Compra web"
+                observaciones: "Pedido realizado desde la web"
             });
 
-            const idPedido = pedido.data.id_pedido;
+            const idPedido = pedidoResponse.data.id_pedido;
 
-            const agrupados = {};
+            const productosAgrupados = {};
 
-            carrito.forEach(p => {
-                if (!agrupados[p.id_producto]) {
-                    agrupados[p.id_producto] = { ...p, cantidad: 1 };
+            carrito.forEach((producto) => {
+
+                if (!productosAgrupados[producto.id_producto]) {
+                    productosAgrupados[producto.id_producto] = {
+                        ...producto,
+                        cantidad: 1
+                    };
                 } else {
-                    agrupados[p.id_producto].cantidad++;
+                    productosAgrupados[producto.id_producto].cantidad++;
                 }
+
             });
 
-            for (const id in agrupados) {
-                const p = agrupados[id];
+            for (const id in productosAgrupados) {
+
+                const producto = productosAgrupados[id];
+
+                if (producto.cantidad > producto.stock) {
+                    alert(`No hay suficiente stock de ${producto.nombre}`);
+                    return;
+                }
+
+            }
+
+            for (const id in productosAgrupados) {
+
+                const producto = productosAgrupados[id];
 
                 await API.post("detallepedidos/", {
                     id_pedido: idPedido,
-                    id_producto: p.id_producto,
-                    cantidad: p.cantidad,
-                    precio_unitario: p.precio,
-                    subtotal: p.cantidad * Number(p.precio)
+                    id_producto: producto.id_producto,
+                    cantidad: producto.cantidad,
+                    precio_unitario: producto.precio,
+                    subtotal: producto.cantidad * Number(producto.precio)
                 });
 
-                await API.put(`productos/${p.id_producto}/`, {
-                    ...p,
-                    stock: p.stock - p.cantidad
+                await API.put(`productos/${producto.id_producto}/`, {
+                    ...producto,
+                    stock: producto.stock - producto.cantidad
                 });
+
             }
 
             alert("Compra realizada correctamente");
@@ -117,7 +152,8 @@ function MenuCliente() {
     };
 
     const total = carrito.reduce(
-        (s, p) => s + parseFloat(p.precio || 0),
+        (suma, producto) =>
+            suma + parseFloat(producto.precio || 0),
         0
     );
 
@@ -131,29 +167,40 @@ function MenuCliente() {
 
                 <div className="row">
 
-                    {productos.map(p => (
-                        <div className="col-md-4 mb-3" key={p.id_producto}>
-                            <div className="card">
+                    {productos.map((producto) => (
 
-                                <img src={p.imagen} className="card-img-top" height="200" />
+                        <div className="col-md-4 mb-3" key={producto.id_producto}>
+
+                            <div className="card h-100">
+
+                                <img
+                                    src={producto.imagen}
+                                    alt={producto.nombre}
+                                    className="card-img-top"
+                                    height="200"
+                                    style={{ objectFit: "cover" }}
+                                />
 
                                 <div className="card-body">
 
-                                    <h5>{p.nombre}</h5>
-                                    <p>${Number(p.precio).toFixed(2)}</p>
-                                    <p>Stock: {p.stock}</p>
+                                    <h5>{producto.nombre}</h5>
+                                    <p>${Number(producto.precio).toFixed(2)}</p>
+                                    <p>Stock: {producto.stock}</p>
 
                                     <button
                                         className="btn btn-success"
-                                        disabled={p.stock <= 0}
-                                        onClick={() => agregarAlCarrito(p)}
+                                        disabled={producto.stock <= 0}
+                                        onClick={() => agregarAlCarrito(producto)}
                                     >
-                                        {p.stock <= 0 ? "Agotado" : "Agregar"}
+                                        {producto.stock <= 0 ? "Agotado" : "Agregar"}
                                     </button>
 
                                 </div>
+
                             </div>
+
                         </div>
+
                     ))}
 
                 </div>
