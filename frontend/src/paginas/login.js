@@ -1,30 +1,69 @@
-const login = async () => {
-    try {
-        const response = await API.get("usuarios/");
-        const usuarios = response.data;
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import API from "../api/api";
 
-        console.log("Usuarios:", usuarios);
+function Login() {
 
-        const user = usuarios.find(
-            u => u.email === email && u.password === password
-        );
+    const navigate = useNavigate();
 
-        console.log("Usuario encontrado:", user);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
 
-        if (!user) {
-            alert("Credenciales incorrectas");
-            return;
+    const login = async () => {
+        try {
+            const response = await API.get("usuarios/");
+            const usuarios = response.data;
+
+            const user = usuarios.find(
+                u => u.email === email && u.password === password
+            );
+
+            if (!user) {
+                alert("Credenciales incorrectas");
+                return;
+            }
+
+            localStorage.setItem("usuario", JSON.stringify(user));
+
+            if (user.id_rol === 1) {
+                navigate("/admin");
+            } else {
+                navigate("/cliente");
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert("Error al iniciar sesión");
         }
+    };
 
-        localStorage.setItem("usuario", JSON.stringify(user));
+    return (
+        <div className="container mt-5">
 
-        if (user.id_rol === 1) {
-            navigate("/admin");
-        } else {
-            navigate("/cliente");
-        }
+            <h2>Login</h2>
 
-    } catch (error) {
-        console.error(error);
-    }
-};
+            <input
+                type="text"
+                placeholder="Email"
+                className="form-control mb-2"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <input
+                type="password"
+                placeholder="Password"
+                className="form-control mb-2"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+            />
+
+            <button className="btn btn-primary" onClick={login}>
+                Iniciar sesión
+            </button>
+
+        </div>
+    );
+}
+
+export default Login;
