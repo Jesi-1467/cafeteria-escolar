@@ -10,10 +10,13 @@ function MenuCliente() {
     useEffect(() => {
         cargarProductos();
 
-        const carritoGuardado = localStorage.getItem("carrito");
+        const carritoGuardado =
+            localStorage.getItem("carrito");
 
         if (carritoGuardado) {
-            setCarrito(JSON.parse(carritoGuardado));
+            setCarrito(
+                JSON.parse(carritoGuardado)
+            );
         }
     }, []);
 
@@ -37,118 +40,178 @@ function MenuCliente() {
             return;
         }
 
-        const nuevoCarrito = [...carrito, producto];
+        const nuevoCarrito = [
+            ...carrito,
+            producto
+        ];
 
         setCarrito(nuevoCarrito);
 
-        localStorage.setItem("carrito", JSON.stringify(nuevoCarrito));
+        localStorage.setItem(
+            "carrito",
+            JSON.stringify(nuevoCarrito)
+        );
 
         const restantes = producto.stock - (cantidadEnCarrito + 1);
 
         if (restantes === 0) {
+
             alert(`Se agotó el producto "${producto.nombre}"`);
+
         } else {
+
             alert(
                 `El producto "${producto.nombre}" se agregó al carrito. Restan ${restantes} unidades`
             );
+
         }
     };
 
     const eliminarProducto = (index) => {
 
-        const nuevoCarrito = carrito.filter((_, i) => i !== index);
+        const nuevoCarrito = carrito.filter(
+            (_, i) => i !== index
+        );
 
         setCarrito(nuevoCarrito);
 
-        localStorage.setItem("carrito", JSON.stringify(nuevoCarrito));
+        localStorage.setItem(
+            "carrito",
+            JSON.stringify(nuevoCarrito)
+        );
     };
 
     const pagar = async () => {
 
-        const total = carrito.reduce(
-            (suma, producto) =>
-                suma + parseFloat(producto.precio || 0),
-            0
-        );
-
         try {
 
-            const usuario = JSON.parse(localStorage.getItem("usuario"));
+            const usuario = JSON.parse(
+                localStorage.getItem("usuario")
+            );
 
             if (!usuario) {
+
                 alert("Debe iniciar sesión");
                 return;
+
             }
 
             const fechaActual = new Date()
-                .toISOString()
-                .slice(0, 19);
+                .toLocaleString("sv-SE")
+                .replace(" ", "T");
 
-            const pedidoResponse = await API.post("pedidos/", {
-                id_usuario: usuario.id_usuario,
-                fecha: fechaActual,
-                total: total,
-                estado: "Pagado",
-                observaciones: "Pedido realizado desde la web"
-            });
+            const pedidoResponse = await API.post(
+                "pedidos/",
+                {
+                    id_usuario: usuario.id_usuario,
+                    fecha: fechaActual,
+                    total: total,
+                    estado: "Pagado",
+                    observaciones: "Pedido realizado desde la web"
+                }
+            );
 
-            const idPedido = pedidoResponse.data.id_pedido;
+            const idPedido =
+                pedidoResponse.data.id_pedido;
 
             const productosAgrupados = {};
 
             carrito.forEach((producto) => {
 
                 if (!productosAgrupados[producto.id_producto]) {
-                    productosAgrupados[producto.id_producto] = {
+
+                    productosAgrupados[
+                        producto.id_producto
+                    ] = {
                         ...producto,
                         cantidad: 1
                     };
+
                 } else {
-                    productosAgrupados[producto.id_producto].cantidad++;
+
+                    productosAgrupados[
+                        producto.id_producto
+                    ].cantidad++;
+
                 }
 
             });
 
             for (const id in productosAgrupados) {
 
-                const producto = productosAgrupados[id];
+                const producto =
+                    productosAgrupados[id];
 
-                if (producto.cantidad > producto.stock) {
-                    alert(`No hay suficiente stock de ${producto.nombre}`);
+                if (
+                    producto.cantidad >
+                    producto.stock
+                ) {
+
+                    alert(
+                        `No hay suficiente stock de ${producto.nombre}`
+                    );
+
                     return;
+
                 }
 
             }
 
             for (const id in productosAgrupados) {
 
-                const producto = productosAgrupados[id];
+                const producto =
+                    productosAgrupados[id];
 
-                await API.post("detallepedidos/", {
-                    id_pedido: idPedido,
-                    id_producto: producto.id_producto,
-                    cantidad: producto.cantidad,
-                    precio_unitario: producto.precio,
-                    subtotal: producto.cantidad * Number(producto.precio)
-                });
+                await API.post(
+                    "detallepedidos/",
+                    {
+                        id_pedido: idPedido,
+                        id_producto:
+                            producto.id_producto,
+                        cantidad:
+                            producto.cantidad,
+                        precio_unitario:
+                            producto.precio,
+                        subtotal:
+                            producto.cantidad *
+                            Number(producto.precio)
+                    }
+                );
 
-                await API.put(`productos/${producto.id_producto}/`, {
+                const productoActualizado = {
                     ...producto,
-                    stock: producto.stock - producto.cantidad
-                });
+                    stock:
+                        producto.stock -
+                        producto.cantidad
+                };
+
+                await API.put(
+                    `productos/${producto.id_producto}/`,
+                    productoActualizado
+                );
 
             }
 
-            alert("Compra realizada correctamente");
+            alert(
+                "Compra realizada correctamente"
+            );
 
             setCarrito([]);
+
             localStorage.removeItem("carrito");
+
             cargarProductos();
 
         } catch (error) {
+
             console.error(error);
-            alert("Error en la compra");
+
+            alert(
+                "Error al realizar la compra"
+            );
+
         }
+
     };
 
     const total = carrito.reduce(
@@ -163,13 +226,18 @@ function MenuCliente() {
 
             <div className="container mt-4">
 
-                <h2>Menú de Productos</h2>
+                <h2 className="mb-4">
+                    Menú de Productos
+                </h2>
 
                 <div className="row">
 
                     {productos.map((producto) => (
 
-                        <div className="col-md-4 mb-3" key={producto.id_producto}>
+                        <div
+                            className="col-md-4 mb-4"
+                            key={producto.id_producto}
+                        >
 
                             <div className="card h-100">
 
@@ -183,16 +251,30 @@ function MenuCliente() {
 
                                 <div className="card-body">
 
-                                    <h5>{producto.nombre}</h5>
-                                    <p>${Number(producto.precio).toFixed(2)}</p>
-                                    <p>Stock: {producto.stock}</p>
+                                    <h5>
+                                        {producto.nombre}
+                                    </h5>
+
+                                    <p>
+                                        <strong>Precio:</strong>{" "}
+                                        ${Number(producto.precio).toFixed(2)}
+                                    </p>
+
+                                    <p>
+                                        <strong>Stock:</strong>{" "}
+                                        {producto.stock}
+                                    </p>
 
                                     <button
                                         className="btn btn-success"
                                         disabled={producto.stock <= 0}
-                                        onClick={() => agregarAlCarrito(producto)}
+                                        onClick={() =>
+                                            agregarAlCarrito(producto)
+                                        }
                                     >
-                                        {producto.stock <= 0 ? "Agotado" : "Agregar"}
+                                        {producto.stock <= 0
+                                            ? "Agotado"
+                                            : "Agregar al carrito"}
                                     </button>
 
                                 </div>
@@ -207,29 +289,92 @@ function MenuCliente() {
 
                 <hr />
 
-                <h3>Carrito</h3>
+                <h3>
+                    Carrito de Compras
+                </h3>
 
-                <ul className="list-group">
-                    {carrito.map((p, i) => (
-                        <li key={i} className="list-group-item d-flex justify-content-between">
-                            {p.nombre} - ${p.precio}
+                <table className="table table-bordered">
 
-                            <button
-                                className="btn btn-danger btn-sm"
-                                onClick={() => eliminarProducto(i)}
-                            >
-                                X
-                            </button>
-                        </li>
-                    ))}
-                </ul>
+                    <thead className="table-dark">
 
-                <h4 className="mt-3">Total: ${total.toFixed(2)}</h4>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Precio</th>
+                            <th>Acciones</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        {carrito.length > 0 ? (
+
+                            carrito.map((producto, index) => (
+
+                                <tr key={index}>
+
+                                    <td>{producto.nombre}</td>
+
+                                    <td>
+                                        ${Number(producto.precio).toFixed(2)}
+                                    </td>
+
+                                    <td>
+                                        <button
+                                            className="btn btn-danger btn-sm"
+                                            onClick={() =>
+                                                eliminarProducto(index)
+                                            }
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </td>
+
+                                </tr>
+
+                            ))
+
+                        ) : (
+
+                            <tr>
+
+                                <td
+                                    colSpan="3"
+                                    className="text-center"
+                                >
+                                    No hay productos en el carrito
+                                </td>
+
+                            </tr>
+
+                        )}
+
+                    </tbody>
+
+                </table>
+
+                <div className="alert alert-success">
+
+                    <h4>
+                        Total a pagar: $
+                        {Number(total).toFixed(2)}
+                    </h4>
+
+                </div>
 
                 {carrito.length > 0 && (
-                    <button className="btn btn-primary mt-2" onClick={pagar}>
-                        Pagar
-                    </button>
+
+                    <div className="text-center">
+
+                        <button
+                            className="btn btn-primary btn-lg"
+                            onClick={pagar}
+                        >
+                            Pagar
+                        </button>
+
+                    </div>
+
                 )}
 
             </div>

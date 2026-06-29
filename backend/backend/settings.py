@@ -87,13 +87,11 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
-
-
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 if os.environ.get('DATABASE_URL'):
-    # Configuracion para Railway (produccion)
+    # Configuración para Railway (producción)
     DATABASES = {
         'default': dj_database_url.config(
             default=os.environ.get('DATABASE_URL'),
@@ -101,9 +99,8 @@ if os.environ.get('DATABASE_URL'):
         )
     }
 else:
-    # Configuracion local (tu computadora con XAMPP)
-
-DATABASES = {
+    # Configuración local (tu computadora con XAMPP)
+    DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
             'NAME': 'cafeteria_escolar',
@@ -116,8 +113,6 @@ DATABASES = {
             }
         }
     }
-
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
