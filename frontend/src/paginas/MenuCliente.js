@@ -202,15 +202,22 @@ function MenuCliente() {
 
             cargarProductos();
 
-        } catch (error) {
+        catch (error) {
 
-            console.error(error);
+                console.error(error);
 
-            alert(
-                "Error al realizar la compra"
-            );
+                     if (error.response) {
+                 console.log("Status:", error.response.status);
+                console.log("Respuesta:", error.response.data);
 
-        }
+        alert(
+            JSON.stringify(error.response.data, null, 2)
+        );
+    } else {
+        alert("Error de conexión con el servidor");
+    }
+
+}
 
     };
 
