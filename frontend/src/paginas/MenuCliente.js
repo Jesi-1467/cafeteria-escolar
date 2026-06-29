@@ -10,13 +10,10 @@ function MenuCliente() {
     useEffect(() => {
         cargarProductos();
 
-        const carritoGuardado =
-            localStorage.getItem("carrito");
+        const carritoGuardado = localStorage.getItem("carrito");
 
         if (carritoGuardado) {
-            setCarrito(
-                JSON.parse(carritoGuardado)
-            );
+            setCarrito(JSON.parse(carritoGuardado));
         }
     }, []);
 
@@ -31,188 +28,96 @@ function MenuCliente() {
 
     const agregarAlCarrito = (producto) => {
 
-        const cantidadEnCarrito = carrito.filter(
+        const cantidad = carrito.filter(
             item => item.id_producto === producto.id_producto
         ).length;
 
-        if (cantidadEnCarrito >= producto.stock) {
-            alert(`Ya no hay más existencias de "${producto.nombre}"`);
+        if (cantidad >= producto.stock) {
+            alert("Sin stock disponible");
             return;
         }
 
-        const nuevoCarrito = [
-            ...carrito,
-            producto
-        ];
+        const nuevo = [...carrito, producto];
 
-        setCarrito(nuevoCarrito);
-
-        localStorage.setItem(
-            "carrito",
-            JSON.stringify(nuevoCarrito)
-        );
-
-        const restantes = producto.stock - (cantidadEnCarrito + 1);
-
-        if (restantes === 0) {
-
-            alert(`Se agotó el producto "${producto.nombre}"`);
-
-        } else {
-
-            alert(
-                `El producto "${producto.nombre}" se agregó al carrito. Restan ${restantes} unidades`
-            );
-
-        }
+        setCarrito(nuevo);
+        localStorage.setItem("carrito", JSON.stringify(nuevo));
     };
 
     const eliminarProducto = (index) => {
-
-        const nuevoCarrito = carrito.filter(
-            (_, i) => i !== index
-        );
-
-        setCarrito(nuevoCarrito);
-
-        localStorage.setItem(
-            "carrito",
-            JSON.stringify(nuevoCarrito)
-        );
+        const nuevo = carrito.filter((_, i) => i !== index);
+        setCarrito(nuevo);
+        localStorage.setItem("carrito", JSON.stringify(nuevo));
     };
 
-   const pagar = async () => {
+    const pagar = async () => {
 
-    const total = carrito.reduce(
-        (suma, producto) => suma + parseFloat(producto.precio || 0),
-        0
-    );
-
-    try {
-
-        const usuario = JSON.parse(
-            localStorage.getItem("usuario")
+        const total = carrito.reduce(
+            (suma, p) => suma + parseFloat(p.precio || 0),
+            0
         );
 
-        if (!usuario) {
-            alert("Debe iniciar sesión");
-            return;
-        }
+        try {
 
-        const fechaActual = new Date()
-            .toLocaleString("sv-SE")
-            .replace(" ", "T");
+            const usuario = JSON.parse(localStorage.getItem("usuario"));
 
-        const pedidoResponse = await API.post(
-            "pedidos/",
-            {
-                id_usuario: usuario.id_usuario,
-                fecha: fechaActual,
-                total: total,
-                estado: "Pagado",
-                observaciones: "Pedido realizado desde la web"
-            }
-        );
-
-        const idPedido = pedidoResponse.data.id_pedido;
-
-        const productosAgrupados = {};
-
-        carrito.forEach((producto) => {
-
-            if (!productosAgrupados[producto.id_producto]) {
-
-                productosAgrupados[producto.id_producto] = {
-                    ...producto,
-                    cantidad: 1
-                };
-
-            } else {
-
-                productosAgrupados[producto.id_producto].cantidad++;
-
-            }
-
-        });
-
-        for (const id in productosAgrupados) {
-
-            const producto = productosAgrupados[id];
-
-            if (producto.cantidad > producto.stock) {
-
-                alert(`No hay suficiente stock de ${producto.nombre}`);
+            if (!usuario) {
+                alert("Debe iniciar sesión");
                 return;
-
             }
 
-        }
+            const fecha = new Date().toISOString().slice(0, 19);
 
-        for (const id in productosAgrupados) {
+            const pedido = await API.post("pedidos/", {
+                id_usuario: usuario.id_usuario,
+                fecha,
+                total,
+                estado: "Pagado",
+                observaciones: "Compra web"
+            });
 
-            const producto = productosAgrupados[id];
+            const idPedido = pedido.data.id_pedido;
 
-            await API.post(
-                "detallepedidos/",
-                {
-                    id_pedido: idPedido,
-                    id_producto: producto.id_producto,
-                    cantidad: producto.cantidad,
-                    precio_unitario: producto.precio,
-                    subtotal:
-                        producto.cantidad *
-                        Number(producto.precio)
+            const agrupados = {};
+
+            carrito.forEach(p => {
+                if (!agrupados[p.id_producto]) {
+                    agrupados[p.id_producto] = { ...p, cantidad: 1 };
+                } else {
+                    agrupados[p.id_producto].cantidad++;
                 }
-            );
+            });
 
-            const productoActualizado = {
-                ...producto,
-                stock: producto.stock - producto.cantidad
-            };
+            for (const id in agrupados) {
+                const p = agrupados[id];
 
-            await API.put(
-                `productos/${producto.id_producto}/`,
-                productoActualizado
-            );
+                await API.post("detallepedidos/", {
+                    id_pedido: idPedido,
+                    id_producto: p.id_producto,
+                    cantidad: p.cantidad,
+                    precio_unitario: p.precio,
+                    subtotal: p.cantidad * Number(p.precio)
+                });
 
+                await API.put(`productos/${p.id_producto}/`, {
+                    ...p,
+                    stock: p.stock - p.cantidad
+                });
+            }
+
+            alert("Compra realizada correctamente");
+
+            setCarrito([]);
+            localStorage.removeItem("carrito");
+            cargarProductos();
+
+        } catch (error) {
+            console.error(error);
+            alert("Error en la compra");
         }
-
-        alert("Compra realizada correctamente");
-
-        setCarrito([]);
-
-        localStorage.removeItem("carrito");
-
-        cargarProductos();
-
-    } catch (error) {
-
-        console.error(error);
-
-        if (error.response) {
-
-            console.log("Status:", error.response.status);
-            console.log("Respuesta:", error.response.data);
-
-            alert(
-                JSON.stringify(error.response.data, null, 2)
-            );
-
-        } else {
-
-            alert("Error de conexión con el servidor");
-
-        }
-
-    }
-
-};
-
     };
 
     const total = carrito.reduce(
-        (suma, producto) =>
-            suma + parseFloat(producto.precio || 0),
+        (s, p) => s + parseFloat(p.precio || 0),
         0
     );
 
@@ -222,155 +127,62 @@ function MenuCliente() {
 
             <div className="container mt-4">
 
-                <h2 className="mb-4">
-                    Menú de Productos
-                </h2>
+                <h2>Menú de Productos</h2>
 
                 <div className="row">
 
-                    {productos.map((producto) => (
+                    {productos.map(p => (
+                        <div className="col-md-4 mb-3" key={p.id_producto}>
+                            <div className="card">
 
-                        <div
-                            className="col-md-4 mb-4"
-                            key={producto.id_producto}
-                        >
-
-                            <div className="card h-100">
-
-                                <img
-                                    src={producto.imagen}
-                                    alt={producto.nombre}
-                                    className="card-img-top"
-                                    height="200"
-                                    style={{ objectFit: "cover" }}
-                                />
+                                <img src={p.imagen} className="card-img-top" height="200" />
 
                                 <div className="card-body">
 
-                                    <h5>
-                                        {producto.nombre}
-                                    </h5>
-
-                                    <p>
-                                        <strong>Precio:</strong>{" "}
-                                        ${Number(producto.precio).toFixed(2)}
-                                    </p>
-
-                                    <p>
-                                        <strong>Stock:</strong>{" "}
-                                        {producto.stock}
-                                    </p>
+                                    <h5>{p.nombre}</h5>
+                                    <p>${Number(p.precio).toFixed(2)}</p>
+                                    <p>Stock: {p.stock}</p>
 
                                     <button
                                         className="btn btn-success"
-                                        disabled={producto.stock <= 0}
-                                        onClick={() =>
-                                            agregarAlCarrito(producto)
-                                        }
+                                        disabled={p.stock <= 0}
+                                        onClick={() => agregarAlCarrito(p)}
                                     >
-                                        {producto.stock <= 0
-                                            ? "Agotado"
-                                            : "Agregar al carrito"}
+                                        {p.stock <= 0 ? "Agotado" : "Agregar"}
                                     </button>
 
                                 </div>
-
                             </div>
-
                         </div>
-
                     ))}
 
                 </div>
 
                 <hr />
 
-                <h3>
-                    Carrito de Compras
-                </h3>
+                <h3>Carrito</h3>
 
-                <table className="table table-bordered">
+                <ul className="list-group">
+                    {carrito.map((p, i) => (
+                        <li key={i} className="list-group-item d-flex justify-content-between">
+                            {p.nombre} - ${p.precio}
 
-                    <thead className="table-dark">
+                            <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => eliminarProducto(i)}
+                            >
+                                X
+                            </button>
+                        </li>
+                    ))}
+                </ul>
 
-                        <tr>
-                            <th>Producto</th>
-                            <th>Precio</th>
-                            <th>Acciones</th>
-                        </tr>
-
-                    </thead>
-
-                    <tbody>
-
-                        {carrito.length > 0 ? (
-
-                            carrito.map((producto, index) => (
-
-                                <tr key={index}>
-
-                                    <td>{producto.nombre}</td>
-
-                                    <td>
-                                        ${Number(producto.precio).toFixed(2)}
-                                    </td>
-
-                                    <td>
-                                        <button
-                                            className="btn btn-danger btn-sm"
-                                            onClick={() =>
-                                                eliminarProducto(index)
-                                            }
-                                        >
-                                            Eliminar
-                                        </button>
-                                    </td>
-
-                                </tr>
-
-                            ))
-
-                        ) : (
-
-                            <tr>
-
-                                <td
-                                    colSpan="3"
-                                    className="text-center"
-                                >
-                                    No hay productos en el carrito
-                                </td>
-
-                            </tr>
-
-                        )}
-
-                    </tbody>
-
-                </table>
-
-                <div className="alert alert-success">
-
-                    <h4>
-                        Total a pagar: $
-                        {Number(total).toFixed(2)}
-                    </h4>
-
-                </div>
+                <h4 className="mt-3">Total: ${total.toFixed(2)}</h4>
 
                 {carrito.length > 0 && (
-
-                    <div className="text-center">
-
-                        <button
-                            className="btn btn-primary btn-lg"
-                            onClick={pagar}
-                        >
-                            Pagar
-                        </button>
-
-                    </div>
-
+                    <button className="btn btn-primary mt-2" onClick={pagar}>
+                        Pagar
+                    </button>
                 )}
 
             </div>
