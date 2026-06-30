@@ -8,3 +8,4 @@ whitenoise==6.7.0
 django
 djangorestframework
 gunicorn
+psycopg2-binary
